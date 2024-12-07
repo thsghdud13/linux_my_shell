@@ -31,6 +31,13 @@ void initializePrompt() {
 }
 
 int main() {
+    struct sigaction act;
+
+    sigfillset(&act.sa_mask);
+    act.sa_handler = sigchld_handler;
+    act.sa_flags = SA_RESTART; // 안전하게 시스템 호출 재시작
+    sigaction(SIGCHLD, &act, NULL);
+
     // Initialize prompt
     initializePrompt();
 

@@ -7,6 +7,10 @@ static char *tok = tokbuf;      // Pointer to store tokens in tokbuf
 
 static char special[] = {' ', '\t', '&', ';', '|', '\n', '\0'};
 
+void sigchld_handler(int signo) {
+    while (waitpid(-1, NULL, WNOHANG) > 0); // 종료된 자식 프로세스를 수집
+}
+
 int userin(char *p) {
     int c, count;
     ptr = inpbuf; // Reset ptr to the start of inpbuf

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
 
 #define EOL 1
 #define ARG 2
@@ -23,5 +24,6 @@ void procline();
 int gettok(char **outptr);
 int inarg(char c);
 int runcommand(char **cline, int where);
+void sigchld_handler(int signo);
 
 int handle_cd_command(char **cline);
