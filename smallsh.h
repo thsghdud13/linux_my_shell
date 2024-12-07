@@ -25,5 +25,5 @@ int gettok(char **outptr);
 int inarg(char c);
 int runcommand(char **cline, int where);
 void sigchld_handler(int signo);
-
+void sigint_handler(int signo);
 int handle_cd_command(char **cline);

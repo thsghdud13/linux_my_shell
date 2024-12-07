@@ -4,11 +4,20 @@ static char inpbuf[MAXBUF];     // Buffer to store the user's input line
 static char tokbuf[2 * MAXBUF]; // Buffer to store tokens created from the input
 static char *ptr = inpbuf;      // Pointer to traverse inpbuf
 static char *tok = tokbuf;      // Pointer to store tokens in tokbuf
+pid_t fpid = -1;
 
 static char special[] = {' ', '\t', '&', ';', '|', '\n', '\0'};
 
 void sigchld_handler(int signo) {
     while (waitpid(-1, NULL, WNOHANG) > 0); // 종료된 자식 프로세스를 수집
+}
+
+void sigint_handler(int signo){
+    if(fpid > 0){
+        kill(-fpid, SIGKILL);
+        fpid = -1;
+    }
+    fflush(stdout);
 }
 
 int userin(char *p) {
@@ -209,8 +218,13 @@ int runcommand(char **cline, int where) {
 
     /* following is the code of parent */
     if (where == BACKGROUND) {
+        setpgid(pid,pid);
         printf("[Process id] %d\n", pid);
         return 0;
+    }
+    if (where == FOREGROUND) {
+        fpid = pid;
+        setpgid(pid,pid);
     }
     if (waitpid(pid, &status, 0) == -1)
         return -1;

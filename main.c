@@ -38,6 +38,12 @@ int main() {
     act.sa_flags = SA_RESTART; // 안전하게 시스템 호출 재시작
     sigaction(SIGCHLD, &act, NULL);
 
+    struct sigaction sigint_act;
+    sigfillset(&sigint_act.sa_mask);
+    sigint_act.sa_handler = sigint_handler;
+    sigint_act.sa_flags = SA_RESTART;
+    sigaction(SIGINT, &sigint_act, NULL);
+
     // Initialize prompt
     initializePrompt();
 
