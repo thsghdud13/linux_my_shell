@@ -9,6 +9,7 @@
 #define ARG 2
 #define AMPERSAND 3
 #define SEMICOLON 4
+#define PIPE 5
 #define REDIRECTION 8
 
 #define MAXARG 512

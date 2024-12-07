@@ -5,7 +5,7 @@ static char tokbuf[2 * MAXBUF]; // Buffer to store tokens created from the input
 static char *ptr = inpbuf;      // Pointer to traverse inpbuf
 static char *tok = tokbuf;      // Pointer to store tokens in tokbuf
 
-static char special[] = {' ', '\t', '&', ';', '\n', '\0'};
+static char special[] = {' ', '\t', '&', ';', '|', '\n', '\0'};
 
 int userin(char *p) {
     int c, count;
@@ -49,6 +49,9 @@ int gettok(char **outptr) {
     case ';':
         type = SEMICOLON;
         break;
+    case '|':
+        type = PIPE;
+        break;
     default:
         type = ARG;
         while (inarg(*ptr)) // While the character is not in 'special' characters, continue adding to the token
@@ -68,30 +71,101 @@ int inarg(char c) {
     return 1;
 }
 
+
+int run_pipe_command(char *pipe_args[2][MAXARG + 1]) {
+    int pipe_fd[2];
+    pid_t pid1, pid2;
+
+    if (pipe(pipe_fd) < 0) {
+        perror("pipe error");
+        return -1;
+    }
+
+    if ((pid1 = fork()) == 0) {
+        dup2(pipe_fd[1], STDOUT_FILENO);
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        execvp(pipe_args[0][0], pipe_args[0]);
+        perror("pipe command1");
+        exit(1);
+    }
+
+    if ((pid2 = fork()) == 0) {
+        dup2(pipe_fd[0], STDIN_FILENO);
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        execvp(pipe_args[1][0], pipe_args[1]);
+        perror("pipe command2");
+        exit(1);
+    }
+
+    close(pipe_fd[0]);
+    close(pipe_fd[1]);
+
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
+    return 0;
+}
+
 void procline() {
-    char *arg[MAXARG + 1];
+    char *arg[MAXARG + 1];                // 명령어와 인자를 저장
+    char *pipe_args[2][MAXARG + 1] = {0}; // 파이프 명령어 저장
     int toktype, type;
-    int narg = 0;
-    for (;;) {                                  // Infinite loop to process tokens until end of line (EOL)
-        switch (toktype = gettok(&arg[narg])) { // Get the next token and assign it to 'toktype'
-        case ARG:
-            if (narg < MAXARG)
+    int narg = 0, pipe_flag = 0;
+
+    for (;;) {
+        toktype = gettok(&arg[narg]); // 다음 토큰 가져오기
+        switch (toktype) {
+        case ARG: // 일반 인자
+            if (narg < MAXARG) {
                 narg++;
+            }
             break;
+
+        case PIPE: // 파이프 기호
+            pipe_flag = 1;
+            arg[narg] = NULL; // 현재 명령 종료
+
+            // 첫 번째 명령을 pipe_args[0]에 저장
+            for (int i = 0; i < narg; i++) {
+                pipe_args[0][i] = arg[i];
+            }
+            pipe_args[0][narg] = NULL; // NULL로 종료
+
+            narg = 0; // 다음 명령어를 받기 위해 초기화
+            break;
+
         case EOL:
         case SEMICOLON:
         case AMPERSAND:
-            if (toktype == AMPERSAND)
+            if (toktype == AMPERSAND) {
                 type = BACKGROUND;
-            else
+            } else {
                 type = FOREGROUND;
-            if (narg != 0) {
-                arg[narg] = NULL;
-                runcommand(arg, type);
             }
-            if (toktype == EOL)
+
+            if (narg != 0) {
+                arg[narg] = NULL; // 현재 명령 종료
+
+                if (pipe_flag) {
+                    // 두 번째 명령을 pipe_args[1]에 저장
+                    for (int i = 0; i < narg; i++) {
+                        pipe_args[1][i] = arg[i];
+                    }
+                    pipe_args[1][narg] = NULL; // NULL로 종료
+
+                    run_pipe_command(pipe_args); // 파이프 명령 실행
+                } else {
+                    runcommand(arg, type); // 일반 명령 실행
+                }
+            }
+
+            if (toktype == EOL) {
                 return;
-            narg = 0; // Reset argument count for the next command
+            }
+
+            narg = 0;      // 다음 명령어를 처리하기 위해 초기화
+            pipe_flag = 0; // 파이프 상태 초기화
             break;
         }
     }
